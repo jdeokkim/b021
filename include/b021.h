@@ -37,6 +37,12 @@
 #define SCREEN_WIDTH      640
 #define SCREEN_HEIGHT     480
 
+#define CARD_WIDTH        64.0f
+#define CARD_HEIGHT       64.0f
+
+#define MAX_CARD_NUMBER   13
+#define MAX_CARD_COUNT    52
+
 /* | 자료형 정의... | */
 
 /* 게임의 리소스 파일 종류를 나타내는 열거형. */
@@ -56,16 +62,39 @@ typedef enum SceneType {
 
 /* 게임 리소스 데이터를 나타내는 구조체. */
 typedef struct Asset {
-    bool loaded;            // 로딩 여부
-    AssetType type;         // 리소스 데이터의 종류
-    const char *path;       // 리소스 파일 경로
+    bool loaded;            // 로딩 여부.
+    AssetType type;         // 리소스 데이터의 종류.
+    const char *path;       // 리소스 파일 경로.
     union {
         Font font;
         Music music;
         Sound sound;
         Texture2D texture;
-    } data;                 // 리소스 데이터
+    } data;                 // 리소스 데이터.
 } Asset;
+
+/* 블랙잭 카드의 무늬를 나타내는 열거형. */
+typedef enum Suit {
+    SUIT_HEART,    // 하트 무늬.
+    SUIT_DIAMOND,  // 다이아몬드 무늬.
+    SUIT_CLOVER,   // 클로버 무늬.
+    SUIT_SPADE,    // 스페이드 무늬.
+    _SUIT_COUNT
+} Suit;
+
+/* 블랙잭 카드의 정보를 나타내는 구조체. */
+typedef struct Card {
+    Suit suit;      // 카드의 무늬.
+    int index;      // 카드의 인덱스.
+    float offset;   // 카드의 랜덤 값.
+    bool state;     // 카드의 상태.
+} Card;
+
+/* 블랙잭 카드 덱을 나타내는 구조체. */
+typedef struct Deck {
+    Card cards[MAX_CARD_COUNT];  // 블랙잭 카드 배열.
+    int length;                  // 남아있는 카드 수.
+} Deck;
 
 /* | `asset` 모듈 함수... | */
 
