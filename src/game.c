@@ -20,9 +20,12 @@
     SOFTWARE.
 */
 
+#include <stdbool.h>
 #include <stdio.h>
 
 #include "b021.h"
+
+#define B017_DEBUG
 
 /* | `game` 모듈 상수... | */
 
@@ -32,6 +35,12 @@ static const Vector2 deckPosition = {
     0.14f * (SCREEN_HEIGHT - CARD_HEIGHT)
 };
 
+/* 딜러 패의 기본 위치. */
+static const Vector2 dealerHandPosition = { 352.0f - 14.0f, 322.0f + 2.0f };
+
+/* 플레이어 패의 기본 위치. */
+static const Vector2 playerHandPosition = { 25.0f - 14.0f, 322.0f + 2.0f };
+
 /* | `game` 모듈 변수... | */
 
 /* 블랙잭 보드의 리소스 데이터. */
@@ -40,8 +49,14 @@ static Asset *astBoard;
 /* 블랙잭 카드의 리소스 데이터. */
 static Asset *astCards;
 
+/* 딜러와 플레이어의 패. */
+static Deck dealerHand, playerHand;
+
 /* 블랙잭 카드 덱. */
 static Deck deck;
+
+/* 게임 플레이 화면의 결과값. */
+static int result;
 
 /* | `game` 모듈 함수... | */
 
@@ -54,6 +69,9 @@ static void GenerateDeck(void);
 */
 static void ShuffleDeck(void);
 
+/* 덱에서 카드를 한 장 뽑는다. */
+static void DealCard(bool toPlayer);
+
 /* 블랙잭 보드를 그린다. */
 static void DrawBoard(void);
 
@@ -62,6 +80,15 @@ static void DrawCard(Card *card, Vector2 position);
 
 /* 블랙잭 카드 덱을 그린다. */
 static void DrawDeck(Vector2 position);
+
+/* 딜러의 패를 그린다. */
+static void DrawDealerHand(Vector2 position);
+
+/* 플레이어의 패를 그린다.*/
+static void DrawPlayerHand(Vector2 position);
+
+/* 마우스 이벤트를 처리한다. */
+static void HandleMouseEvents(void);
 
 /* 게임 플레이 장면을 초기화한다. */
 void InitGameScene(void) {
@@ -73,6 +100,11 @@ void InitGameScene(void) {
 
 /* 게임 플레이 장면을 업데이트한다. */
 void UpdateGameScene(void) {
+#ifdef B017_DEBUG
+    if (IsKeyPressed(KEY_Q)) DealCard(true);
+    if (IsKeyPressed(KEY_W)) DealCard(false);
+#endif
+
     ClearBackground(BLACK);
 
     // 블랙잭 보드를 그린다.
@@ -81,6 +113,14 @@ void UpdateGameScene(void) {
     // 블랙잭 카드 덱을 그린다.
     DrawDeck(deckPosition);
 
+    // 플레이어의 패를 그린다.
+    DrawPlayerHand(playerHandPosition);
+
+    // 딜러의 패를 그린다.
+    DrawDealerHand(dealerHandPosition);
+
+    HandleMouseEvents();
+
 #ifdef _DEBUG
     DrawFPS(8, 8);
 #endif
@@ -88,7 +128,7 @@ void UpdateGameScene(void) {
 
 /* 게임 플레이 장면을 종료한다. */
 int FinishGameScene(void) {
-    /* TODO: ... */
+    return result;
 }
 
 /* 블랙잭 카드 덱을 생성한다. */
@@ -103,7 +143,7 @@ static void GenerateDeck(void) {
                 .suit = y,
                 .index = x,
                 .offset = 0.4f * rv,
-                .state = false
+                .state = 0
             };
         }
 
@@ -130,6 +170,51 @@ static void ShuffleDeck(void) {
 
         deck.cards[j].suit = tempSuit;
         deck.cards[j].index = tempIndex;
+    }
+}
+
+/* 덱에서 카드를 한 장 뽑는다. */
+static void DealCard(bool toPlayer) {
+    if (deck.length == 0) {
+        TraceLog(
+            LOG_INFO, 
+            "Unable to deal a card because the deck is empty"
+        );
+        
+        return;
+    } else if ((toPlayer && playerHand.length >= MAX_HAND_COUNT)
+        || (!toPlayer && dealerHand.length >= MAX_HAND_COUNT)) {
+        TraceLog(
+            LOG_INFO, 
+            "Unable to deal a card because %s's hand is full",
+            toPlayer ? "the player" : "the dealer"
+        );
+
+        return;
+    }
+
+    // 덱의 맨 위에 있는 카드를 삭제한다.
+    Card top = deck.cards[--deck.length];
+
+    top.offset = deck.cards[deck.length - 1].offset = 0.0f;
+
+    TraceLog(
+        LOG_INFO, 
+        "Dealing card #%d to %s",
+        toPlayer ? playerHand.length : dealerHand.length,
+        toPlayer ? "the player" : "the dealer"
+    );
+
+    if (toPlayer) {
+        // 플레이어는 자신의 패를 다 볼 수 있다.
+        top.state = 1;
+
+        playerHand.cards[playerHand.length++] = top;
+    } else {
+        // 딜러의 첫 번째 카드만 보여준다.
+        top.state = (dealerHand.length == 0);
+
+        dealerHand.cards[dealerHand.length++] = top;
     }
 }
 
@@ -184,5 +269,53 @@ static void DrawDeck(Vector2 position) {
         DrawCard(&deck.cards[i], position);
 
         position.y -= 0.8f;
+    }
+}
+
+/* 딜러의 패를 그린다. */
+static void DrawDealerHand(Vector2 position) {
+    if (dealerHand.length == 0) return;
+
+    for (int i = 0; i < dealerHand.length; i++)
+        DrawCard(
+            &dealerHand.cards[i], 
+            (Vector2) { 
+                position.x + (0.25f * CARD_WIDTH) * i,
+                position.y
+            }
+        );
+}
+
+/* 플레이어의 패를 그린다.*/
+static void DrawPlayerHand(Vector2 position) {
+    if (playerHand.length == 0) return;
+
+    for (int i = 0; i < playerHand.length; i++)
+        DrawCard(
+            &playerHand.cards[i], 
+            (Vector2) { 
+                position.x + (0.25f * CARD_WIDTH) * i,
+                position.y + (
+                    (playerHand.cards[i].state == 2) 
+                    ? -0.75f * CARD_HEIGHT
+                    : 0.0f
+                )
+            }
+        );
+}
+
+/* 마우스 이벤트를 처리한다. */
+static void HandleMouseEvents(void) {
+    for (int i = 0; i < playerHand.length; i++) {
+        Rectangle aabb = {
+            .x = playerHandPosition.x + (0.274f * CARD_WIDTH) * (i + 1),
+            .y = playerHandPosition.y,
+            .width = (i != playerHand.length - 1) 
+                ? 0.25f * CARD_WIDTH 
+                : 1.35f * CARD_WIDTH,
+            .height = 2.0f * CARD_HEIGHT
+        };
+
+        playerHand.cards[i].state = CheckCollisionPointRec(GetMousePosition(), aabb) + 1;
     }
 }

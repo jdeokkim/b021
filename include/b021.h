@@ -42,6 +42,7 @@
 
 #define MAX_CARD_NUMBER   13
 #define MAX_CARD_COUNT    52
+#define MAX_HAND_COUNT    11
 
 /* | 자료형 정의... | */
 
@@ -87,7 +88,7 @@ typedef struct Card {
     Suit suit;      // 카드의 무늬.
     int index;      // 카드의 인덱스.
     float offset;   // 카드의 랜덤 값.
-    bool state;     // 카드의 상태.
+    int state;      // 카드의 상태.
 } Card;
 
 /* 블랙잭 카드 덱을 나타내는 구조체. */
