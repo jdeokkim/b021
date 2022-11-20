@@ -88,6 +88,9 @@ static void DrawPlayerHand(Vector2 position);
 /* 마우스 이벤트를 처리한다. */
 static void HandleMouseEvents(void);
 
+/* 게임을 초기화한다. */
+static void ResetGame(void);
+
 /* 게임 플레이 장면을 초기화한다. */
 void InitGameScene(void) {
     astBoard = GetAsset(0);
@@ -100,7 +103,9 @@ void InitGameScene(void) {
 void UpdateGameScene(void) {
 #ifdef _DEBUG
     if (IsKeyPressed(KEY_Q)) DealCard(true);
-    if (IsKeyPressed(KEY_W)) DealCard(false);
+    else if (IsKeyPressed(KEY_W)) DealCard(false);
+    else if (IsKeyDown(KEY_E) && deck.length > 0) deck.length--;
+    else if (IsKeyPressed(KEY_R)) ResetGame();
 #endif
 
     HandleMouseEvents();
@@ -173,7 +178,7 @@ static void ShuffleDeck(void) {
 
 /* 덱에서 카드를 한 장 뽑는다. */
 static void DealCard(bool toPlayer) {
-    if (deck.length == 0) {
+    if (deck.length <= 0) {
         TraceLog(
             LOG_INFO, 
             "Unable to deal a card because the deck is empty"
@@ -373,4 +378,12 @@ static void HandleMouseEvents(void) {
                 dealerHand.cards[i].state = CS_BACK_NORMAL;
         }
     }
+}
+
+/* 게임을 초기화한다. */
+static void ResetGame(void) {
+    playerHand.length = playerHand.total = 0;
+    dealerHand.length = dealerHand.total = 0;
+
+    GenerateDeck();
 }
