@@ -75,26 +75,35 @@ typedef struct Asset {
 } Asset;
 
 /* 블랙잭 카드의 무늬를 나타내는 열거형. */
-typedef enum Suit {
-    SUIT_HEART,    // 하트 무늬.
-    SUIT_DIAMOND,  // 다이아몬드 무늬.
-    SUIT_CLOVER,   // 클로버 무늬.
-    SUIT_SPADE,    // 스페이드 무늬.
-    _SUIT_COUNT
-} Suit;
+typedef enum CardSuit {
+    SU_HEART,    // 하트 무늬.
+    SU_DIAMOND,  // 다이아몬드 무늬.
+    SU_CLOVER,   // 클로버 무늬.
+    SU_SPADE,    // 스페이드 무늬.
+    _SU_COUNT
+} CardSuit;
+
+/* 블랙잭 카드의 상태를 나타내는 구조체. */
+typedef enum CardState {
+    CS_FRONT_NORMAL,  // 앞면 기본 상태.
+    CS_FRONT_HOVER,   // 앞면 마우스 접촉 상태.
+    CS_BACK_NORMAL,   // 뒷면 기본 상태.
+    CS_BACK_HOVER     // 뒷면 마우스 접촉 상태.
+} CardState;
 
 /* 블랙잭 카드의 정보를 나타내는 구조체. */
 typedef struct Card {
-    Suit suit;      // 카드의 무늬.
-    int index;      // 카드의 인덱스.
-    float offset;   // 카드의 랜덤 값.
-    int state;      // 카드의 상태.
+    CardSuit suit;    // 카드의 무늬.
+    CardState state;  // 카드의 상태.
+    int index;        // 카드의 인덱스.
+    float offset;     // 카드의 랜덤 값.
 } Card;
 
 /* 블랙잭 카드 덱을 나타내는 구조체. */
 typedef struct Deck {
     Card cards[MAX_CARD_COUNT];  // 블랙잭 카드 배열.
     int length;                  // 남아있는 카드 수.
+    int total;                   // 카드 값의 총합.
 } Deck;
 
 /* | `asset` 모듈 함수... | */

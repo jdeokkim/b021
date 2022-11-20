@@ -25,8 +25,6 @@
 
 #include "b021.h"
 
-#define B017_DEBUG
-
 /* | `game` 모듈 상수... | */
 
 /* 블랙잭 카드 덱의 기본 위치. */
@@ -100,10 +98,12 @@ void InitGameScene(void) {
 
 /* 게임 플레이 장면을 업데이트한다. */
 void UpdateGameScene(void) {
-#ifdef B017_DEBUG
+#ifdef _DEBUG
     if (IsKeyPressed(KEY_Q)) DealCard(true);
     if (IsKeyPressed(KEY_W)) DealCard(false);
 #endif
+
+    HandleMouseEvents();
 
     ClearBackground(BLACK);
 
@@ -118,9 +118,7 @@ void UpdateGameScene(void) {
 
     // 딜러의 패를 그린다.
     DrawDealerHand(dealerHandPosition);
-
-    HandleMouseEvents();
-
+    
 #ifdef _DEBUG
     DrawFPS(8, 8);
 #endif
@@ -135,7 +133,7 @@ int FinishGameScene(void) {
 static void GenerateDeck(void) {
     deck.length = MAX_CARD_COUNT;
 
-    for (int y = 0; y < _SUIT_COUNT; y++)
+    for (int y = 0; y < _SU_COUNT; y++)
         for (int x = 0; x < MAX_CARD_NUMBER; x++) {
             const int rv = GetRandomValue(4, 8);
 
@@ -143,7 +141,7 @@ static void GenerateDeck(void) {
                 .suit = y,
                 .index = x,
                 .offset = 0.4f * rv,
-                .state = 0
+                .state = CS_BACK_NORMAL
             };
         }
 
@@ -207,14 +205,16 @@ static void DealCard(bool toPlayer) {
 
     if (toPlayer) {
         // 플레이어는 자신의 패를 다 볼 수 있다.
-        top.state = 1;
+        top.state = CS_FRONT_NORMAL;
 
         playerHand.cards[playerHand.length++] = top;
+        playerHand.total += (top.index < 10) ? top.index + 1 : 10;
     } else {
         // 딜러의 첫 번째 카드만 보여준다.
-        top.state = (dealerHand.length == 0);
+        top.state = (dealerHand.length == 0) ? CS_FRONT_NORMAL : CS_BACK_NORMAL;
 
         dealerHand.cards[dealerHand.length++] = top;
+        dealerHand.total += (top.index < 10) ? top.index + 1 : 10;
     }
 }
 
@@ -235,9 +235,9 @@ static void DrawCard(Card *card, Vector2 position) {
     };
 
     // 카드가 뒷면인 경우?
-    if (!card->state) {
+    if (card->state == CS_BACK_NORMAL || card->state == CS_BACK_HOVER) {
         source.x = MAX_CARD_NUMBER * CARD_WIDTH;
-        source.y = SUIT_DIAMOND * CARD_HEIGHT;
+        source.y = SU_DIAMOND * CARD_HEIGHT;
     }
 
     Card *top = &deck.cards[deck.length - 1];
@@ -274,21 +274,50 @@ static void DrawDeck(Vector2 position) {
 
 /* 딜러의 패를 그린다. */
 static void DrawDealerHand(Vector2 position) {
-    if (dealerHand.length == 0) return;
+    DrawTextEx(
+        GetFontDefault(),
+#ifdef _DEBUG
+        TextFormat("TOTAL : %d", dealerHand.total),
+#else
+        TextFormat("TOTAL : ?"),
+#endif
+        (Vector2) {
+            dealerHandPosition.x + 9.0f,
+            dealerHandPosition.y - 32.0f
+        },
+        20.0f,
+        2.0f,
+        WHITE
+    );
 
     for (int i = 0; i < dealerHand.length; i++)
         DrawCard(
             &dealerHand.cards[i], 
             (Vector2) { 
                 position.x + (0.25f * CARD_WIDTH) * i,
-                position.y
+                position.y + (
+                    (dealerHand.cards[i].state == CS_FRONT_HOVER
+                        || dealerHand.cards[i].state == CS_BACK_HOVER)
+                        ? -0.75f * CARD_HEIGHT
+                        : 0.0f
+                )
             }
         );
 }
 
 /* 플레이어의 패를 그린다.*/
 static void DrawPlayerHand(Vector2 position) {
-    if (playerHand.length == 0) return;
+    DrawTextEx(
+        GetFontDefault(),
+        TextFormat("TOTAL : %d", playerHand.total),
+        (Vector2) {
+            playerHandPosition.x + 9.0f,
+            playerHandPosition.y - 32.0f
+        },
+        20.0f,
+        2.0f,
+        WHITE
+    );
 
     for (int i = 0; i < playerHand.length; i++)
         DrawCard(
@@ -296,9 +325,10 @@ static void DrawPlayerHand(Vector2 position) {
             (Vector2) { 
                 position.x + (0.25f * CARD_WIDTH) * i,
                 position.y + (
-                    (playerHand.cards[i].state == 2) 
-                    ? -0.75f * CARD_HEIGHT
-                    : 0.0f
+                    (playerHand.cards[i].state == CS_FRONT_HOVER
+                        || playerHand.cards[i].state == CS_BACK_HOVER)
+                        ? -0.75f * CARD_HEIGHT
+                        : 0.0f
                 )
             }
         );
@@ -316,6 +346,31 @@ static void HandleMouseEvents(void) {
             .height = 2.0f * CARD_HEIGHT
         };
 
-        playerHand.cards[i].state = CheckCollisionPointRec(GetMousePosition(), aabb) + 1;
+        playerHand.cards[i].state = CheckCollisionPointRec(GetMousePosition(), aabb) 
+            ? CS_FRONT_HOVER
+            : CS_FRONT_NORMAL;
+    }
+
+    for (int i = 0; i < dealerHand.length; i++) {
+        Rectangle aabb = {
+            .x = dealerHandPosition.x + (0.274f * CARD_WIDTH) * (i + 1),
+            .y = dealerHandPosition.y,
+            .width = (i != dealerHand.length - 1)
+                ? 0.25f * CARD_WIDTH 
+                : 1.35f * CARD_WIDTH,
+            .height = 2.0f * CARD_HEIGHT
+        };
+
+        if (CheckCollisionPointRec(GetMousePosition(), aabb)) {
+            if (dealerHand.cards[i].state == CS_FRONT_NORMAL) 
+                dealerHand.cards[i].state = CS_FRONT_HOVER;
+            else if (dealerHand.cards[i].state == CS_BACK_NORMAL)
+                dealerHand.cards[i].state = CS_BACK_HOVER;
+        } else {
+            if (dealerHand.cards[i].state == CS_FRONT_HOVER) 
+                dealerHand.cards[i].state = CS_FRONT_NORMAL;
+            else if (dealerHand.cards[i].state == CS_BACK_HOVER)
+                dealerHand.cards[i].state = CS_BACK_NORMAL;
+        }
     }
 }
