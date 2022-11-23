@@ -23,6 +23,7 @@
 #include "b021.h"
 
 int main(void) {
+    SetConfigFlags(FLAG_MSAA_4X_HINT);
     SetTargetFPS(TARGET_FPS);
     
     InitWindow(

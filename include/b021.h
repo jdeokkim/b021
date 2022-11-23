@@ -37,6 +37,8 @@
 #define SCREEN_WIDTH      640
 #define SCREEN_HEIGHT     480
 
+#define BLACKJACK         21
+
 #define CARD_WIDTH        64.0f
 #define CARD_HEIGHT       64.0f
 
@@ -105,6 +107,13 @@ typedef struct Deck {
     int length;                  // 남아있는 카드 수.
     int total;                   // 카드 값의 총합.
 } Deck;
+
+/* 블랙잭 게임의 상태를 나타내는 열거형. */
+typedef enum GameState {
+    GS_INIT,         // 초기 상태.
+    GS_PLAYER_TURN,  // 플레이어 차례.
+    GS_DEALER_TURN   // 딜러의 차례.
+} GameState;
 
 /* | `asset` 모듈 함수... | */
 

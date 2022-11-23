@@ -53,19 +53,13 @@ static Deck dealerHand, playerHand;
 /* 블랙잭 카드 덱. */
 static Deck deck;
 
+/* 블랙잭 게임의 상태. */
+static GameState gameState;
+
 /* 게임 플레이 화면의 결과값. */
 static int result;
 
 /* | `game` 모듈 함수... | */
-
-/* 블랙잭 카드 덱을 생성한다. */
-static void GenerateDeck(void);
-
-/* 
-    피셔-예이츠 셔플 알고리즘을 이용하여, 
-    블랙잭 카드 덱을 섞는다.
-*/
-static void ShuffleDeck(void);
 
 /* 덱에서 카드를 한 장 뽑는다. */
 static void DealCard(bool toPlayer);
@@ -85,8 +79,14 @@ static void DrawDealerHand(Vector2 position);
 /* 플레이어의 패를 그린다.*/
 static void DrawPlayerHand(Vector2 position);
 
+/* 블랙잭 카드 덱을 생성한다. */
+static void GenerateDeck(void);
+
 /* 마우스 이벤트를 처리한다. */
 static void HandleMouseEvents(void);
+
+/* 게임의 상태를 변경한다. */
+static void TakeTurn(bool hit);
 
 /* 게임을 초기화한다. */
 static void ResetGame(void);
@@ -96,84 +96,46 @@ void InitGameScene(void) {
     astBoard = GetAsset(0);
     astCards = GetAsset(1);
 
-    GenerateDeck();
+    ResetGame();
 }
 
 /* 게임 플레이 장면을 업데이트한다. */
 void UpdateGameScene(void) {
 #ifdef _DEBUG
-    if (IsKeyPressed(KEY_Q)) DealCard(true);
-    else if (IsKeyPressed(KEY_W)) DealCard(false);
-    else if (IsKeyDown(KEY_E) && deck.length > 0) deck.length--;
-    else if (IsKeyPressed(KEY_R)) ResetGame();
+    /* TODO: 창 및 버튼 추가... */
+
+    if (IsKeyPressed(KEY_Q) || IsKeyPressed(KEY_W))
+        TakeTurn(IsKeyPressed(KEY_Q));
+
+    if (IsKeyPressed(KEY_R)) ResetGame();
 #endif
 
+    // 마우스 이벤트를 처리한다.
     HandleMouseEvents();
 
-    ClearBackground(BLACK);
+    {
+        // 블랙잭 보드를 그린다.
+        DrawBoard();
 
-    // 블랙잭 보드를 그린다.
-    DrawBoard();
+        // 블랙잭 카드 덱을 그린다.
+        DrawDeck(deckPosition);
 
-    // 블랙잭 카드 덱을 그린다.
-    DrawDeck(deckPosition);
+        // 플레이어의 패를 그린다.
+        DrawPlayerHand(playerHandPosition);
 
-    // 플레이어의 패를 그린다.
-    DrawPlayerHand(playerHandPosition);
-
-    // 딜러의 패를 그린다.
-    DrawDealerHand(dealerHandPosition);
-    
+        // 딜러의 패를 그린다.
+        DrawDealerHand(dealerHandPosition);
+        
 #ifdef _DEBUG
-    DrawFPS(8, 8);
+        // FPS 카운터를 그린다.
+        DrawFPS(8, 8);
 #endif
+    }
 }
 
 /* 게임 플레이 장면을 종료한다. */
 int FinishGameScene(void) {
     return result;
-}
-
-/* 블랙잭 카드 덱을 생성한다. */
-static void GenerateDeck(void) {
-    deck.length = MAX_CARD_COUNT;
-
-    for (int y = 0; y < _SU_COUNT; y++)
-        for (int x = 0; x < MAX_CARD_NUMBER; x++) {
-            const int rv = GetRandomValue(4, 8);
-
-            deck.cards[y * MAX_CARD_NUMBER + x] = (Card) {
-                .suit = y,
-                .index = x,
-                .offset = 0.4f * rv,
-                .state = CS_BACK_NORMAL
-            };
-        }
-
-    ShuffleDeck();
-
-    TraceLog(LOG_INFO, "GAME: Generated a new deck successfully");
-}
-
-/* 
-    피셔-예이츠 셔플 알고리즘을 이용하여, 
-    블랙잭 카드 덱을 섞는다.
-*/
-static void ShuffleDeck(void) {
-    /* https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle */
-
-    for (int i = MAX_CARD_COUNT - 1; i >= 1; i--) {
-        int j = GetRandomValue(0, MAX_CARD_COUNT - 1);
-
-        int tempSuit = deck.cards[i].suit;
-        int tempIndex = deck.cards[i].index;
-
-        deck.cards[i].suit = deck.cards[j].suit;
-        deck.cards[i].index = deck.cards[j].index;
-
-        deck.cards[j].suit = tempSuit;
-        deck.cards[j].index = tempIndex;
-    }
 }
 
 /* 덱에서 카드를 한 장 뽑는다. */
@@ -225,6 +187,8 @@ static void DealCard(bool toPlayer) {
 
 /* 블랙잭 보드를 그린다. */
 static void DrawBoard(void) {
+    ClearBackground(BLACK);
+
     DrawTextureV(astBoard->data.texture, (Vector2) { 0.0f }, WHITE);
 }
 
@@ -281,11 +245,9 @@ static void DrawDeck(Vector2 position) {
 static void DrawDealerHand(Vector2 position) {
     DrawTextEx(
         GetFontDefault(),
-#ifdef _DEBUG
-        TextFormat("TOTAL : %d", dealerHand.total),
-#else
-        TextFormat("TOTAL : ?"),
-#endif
+        gameState == GS_DEALER_TURN 
+            ? TextFormat("TOTAL : %d", dealerHand.total)
+            : TextFormat("TOTAL : ?"),
         (Vector2) {
             dealerHandPosition.x + 9.0f,
             dealerHandPosition.y - 32.0f
@@ -339,6 +301,38 @@ static void DrawPlayerHand(Vector2 position) {
         );
 }
 
+/* 블랙잭 카드 덱을 생성한다. */
+static void GenerateDeck(void) {
+    deck.length = MAX_CARD_COUNT;
+
+    for (int y = 0; y < _SU_COUNT; y++)
+        for (int x = 0; x < MAX_CARD_NUMBER; x++) {
+            deck.cards[y * MAX_CARD_NUMBER + x] = (Card) {
+                .suit = y,
+                .index = x,
+                .offset = 0.4f * GetRandomValue(4, 8),
+                .state = CS_BACK_NORMAL
+            };
+        }
+
+    /* https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle */
+
+    for (int i = MAX_CARD_COUNT - 1; i >= 1; i--) {
+        int j = GetRandomValue(0, MAX_CARD_COUNT - 1);
+
+        int tempSuit = deck.cards[i].suit;
+        int tempIndex = deck.cards[i].index;
+
+        deck.cards[i].suit = deck.cards[j].suit;
+        deck.cards[i].index = deck.cards[j].index;
+
+        deck.cards[j].suit = tempSuit;
+        deck.cards[j].index = tempIndex;
+    }
+
+    TraceLog(LOG_INFO, "GAME: Generated a new deck successfully");
+}
+
 /* 마우스 이벤트를 처리한다. */
 static void HandleMouseEvents(void) {
     for (int i = 0; i < playerHand.length; i++) {
@@ -380,10 +374,42 @@ static void HandleMouseEvents(void) {
     }
 }
 
+/* 게임의 상태를 변경한다. */
+static void TakeTurn(bool hit) {
+    if (gameState == GS_PLAYER_TURN && !hit)
+        gameState = GS_DEALER_TURN;
+    
+    switch (gameState) {
+        case GS_INIT:
+            for (int i = 0; i < 2; i++)
+                DealCard(true), DealCard(false);
+            
+            gameState = GS_PLAYER_TURN;
+
+            break;
+
+        case GS_PLAYER_TURN:
+            DealCard(true);
+
+            if (playerHand.total >= BLACKJACK)
+                TakeTurn(false);
+
+            break;
+
+        case GS_DEALER_TURN:
+            for (int i = 0; i < dealerHand.length; i++)
+                dealerHand.cards[i].state = CS_FRONT_NORMAL;
+
+            break;
+    }
+}
+
 /* 게임을 초기화한다. */
 static void ResetGame(void) {
     playerHand.length = playerHand.total = 0;
     dealerHand.length = dealerHand.total = 0;
+
+    gameState = GS_INIT;
 
     GenerateDeck();
 }

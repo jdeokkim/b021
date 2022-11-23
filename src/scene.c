@@ -40,6 +40,8 @@ void LoadScene(SceneType st) {
         case ST_LOADING:
             InitLoadingScene();
 
+            break;
+
         case ST_GAME:
             InitGameScene();
 

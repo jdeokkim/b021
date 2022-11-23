@@ -31,8 +31,8 @@
 static Asset assets[] = {
     { .type = AT_TEXTURE, .path = "res/images/board.png"        },
     { .type = AT_TEXTURE, .path = "res/images/cards-large.png"  },
-    { .type = AT_TEXTURE, .path = "res/images/cards-medium.png" },
-    { .type = AT_TEXTURE, .path = "res/images/cards-small.png"  },
+    { .type = AT_FONT,    .path = "res/fonts/neodgm-16pt.fnt"   },
+    { .type = AT_FONT,    .path = "res/fonts/neodgm-32pt.fnt"   }
 };
 
 /* 게임 리소스 파일의 개수. */
